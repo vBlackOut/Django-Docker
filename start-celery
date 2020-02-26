@@ -1,0 +1,11 @@
+#!/bin/sh
+
+set -o errexit
+set -o nounset
+
+
+#celery multi start intranet -A intranet --beat -l info --logfile=/var/log/celery.log --pidfile=/var/run/celery/celery.pid --time-limit=3600 --concurrency=10 --workdir=/app/DJ-intranet --schedule=/app/DJ-intranet/logs-celery
+
+
+celery -A intranet worker --app=intranet --loglevel=info --logfile=/var/log/celery.log --workdir=/app/DJ-intranet --time-limit=3600 --concurrency=10 --schedule=/app/DJ-intranet/logs-celery --beat
+

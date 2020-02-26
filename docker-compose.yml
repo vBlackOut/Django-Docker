@@ -1,0 +1,75 @@
+version: '3.5'
+
+volumes:
+  dev_postgres_data2: {}
+  dev_postgres_data_backups: {}
+  dev_django_app: {}
+
+services:
+  django: &django
+    build:
+      context: .
+      dockerfile: DockerFile-django
+      shm_size: '2gb'
+    image: dj_dev_django
+    restart: always
+    depends_on:
+      - postgres
+      - mailhog
+    volumes:
+      - .:/app
+    env_file:
+      - .dev.env
+    environment:
+      USING_DOCKER: "true"
+    ports:
+      - "8000:8000"
+    command: /start
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    restart: always
+    ports:
+      - 1025:1025
+      - 8025:8025
+
+  postgres:
+    build:
+      context: .
+      dockerfile: DockerFile-postgres
+      shm_size: '2gb'
+    image: dj_dev_postgres
+    ports:
+      - 5432:5432
+    volumes:
+      - dev_postgres_data2:/var/lib/postgresql/data/pg_data
+    environment:
+      POSTGRES_PASSWORD: intranet
+      POSTGRES_DB: intranet
+      POSTGRES_USER: intranet
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      PGDATA: /var/lib/postgresql/data/pg_data
+
+  redis:
+    restart: always
+    image: redis:3.2
+
+
+  #worker:
+  #  image: dj_dev_django
+  #  command: celery multi start intranet -A intranet --beat -l info --logfile=/var/log/celery.log --pidfile=/var/run/celery/celery.pid --time-limit=3600 --concurrence=10 --workdir=/app/DJ-intranet --schedule=/app/DJ-intranet/logs-celery
+  #  volumes:
+  #   - .:/app
+
+  celeryworker:
+    <<: *django
+    image: dj_dev_celeryworker
+    depends_on:
+      - redis
+      - postgres
+      - mailhog
+    ports: []
+    command: /start-celeryworker
+    volumes:
+      - .:/app

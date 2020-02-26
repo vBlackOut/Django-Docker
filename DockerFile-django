@@ -1,0 +1,47 @@
+FROM python:3.7-alpine
+
+ENV PYTHONUNBUFFERED 1
+
+RUN apk update \
+  && apk update && apk add postgresql-dev gcc python3-dev musl-dev \
+  # psycopg2 dependencies
+  && apk add build-base \
+  && apk add mariadb-dev openssh-client openssh-keygen vim \
+  && apk add --virtual build-deps gcc python3-dev musl-dev \
+  && apk add postgresql-dev \
+  && apk add git \
+  # Pillow dependencies
+  && apk add jpeg-dev zlib-dev freetype-dev lcms2-dev openjpeg-dev tiff-dev tk-dev tcl-dev \
+  # CFFI dependencies
+  && apk add libffi-dev py-cffi \
+  # Translations dependencies
+  && apk add gettext \
+  # https://docs.djangoproject.com/en/dev/ref/django-admin/#dbshell
+  && apk add postgresql-client \
+  && apk add libc-dev gcc libxslt-dev libxslt-dev make
+
+RUN mkdir /var/run/celery/
+
+# Requirements are installed here to ensure they will be cached.
+COPY ./requirements.txt requirements.txt
+RUN python3.7 -m pip install -U pip
+RUN python3.7 -m pip install -r requirements.txt
+
+COPY ./django-entrypoint /entrypoint
+RUN sed -i 's/\r//' /entrypoint
+RUN chmod +x /entrypoint
+RUN sed -i '7s/from django.core.urlresolvers import reverse, resolve, Resolver404/from django.urls import reverse, resolve, Resolver404/' /usr/local/lib/python3.7/site-packages/debug_panel/middleware.py
+
+COPY ./start /start
+RUN sed -i 's/\r//' /start
+RUN chmod +x /start
+
+COPY ./start-celery /start-celeryworker
+RUN sed -i 's/\r//' /start-celeryworker
+RUN chmod +x /start-celeryworker
+
+COPY . /app
+WORKDIR /app
+
+ENTRYPOINT ["/entrypoint"]
+
